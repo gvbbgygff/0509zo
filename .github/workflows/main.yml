@@ -1,49 +1,36 @@
-name: Auto Signup Task2
+name: Zo Full Auto Loop晚
 
 on:
-  # ✅ 建议：一天触发一次（脚本内部会跑 6 小时）
-  schedule:
-    # UTC 22:00 = 北京时间 06:00
-    - cron: '0 4 */20 * *'
-
-  # ✅ 允许你在 GitHub 页面手动点 Run
   workflow_dispatch:
-
-  # ✅ 推送 main 分支也会触发（调试用，可留可删）
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '10 4 * * *'
 
 jobs:
-  run-automation:
+  run:
     runs-on: ubuntu-latest
 
-    # ✅ 6 小时 + 余量，防止 GitHub 强制中断
-    timeout-minutes: 390
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 18
 
-      - name: Install dependencies
+      - name: Install Playwright
         run: |
           npm install playwright
-          npx playwright install chromium --with-deps
+          npx playwright install --with-deps
 
-      - name: Run signup automation (6-hour loop)
-        run: node script.js
-
-      # ✅ 无论成功还是失败，都上传所有截图
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          name: signup-screenshots
-          path: |
-            result_*.png
-            error_*.png
+          python-version: "3.10"
+
+      - name: Install Python deps
+        run: |
+          pip install requests
+
+      - name: Run Loop
+        env:
