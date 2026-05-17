@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 const CONFIG = {
-  workspaceDomain: 'ttt0090.zo.computer',
+  workspaceDomain: 'zo.computer',
   workspaceName: 'ttt0090',
 
   waitAfterEnterWorkspace: 60000,
