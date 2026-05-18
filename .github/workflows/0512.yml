@@ -1,4 +1,4 @@
-name: Zo Full Auto Loop-中
+name: Zo Full Auto Loop-早
 
 on:
   workflow_dispatch:
@@ -29,7 +29,8 @@ jobs:
           python-version: "3.10"
 
       - name: Install Python deps
-        run: pip install requests
+        run: |
+          pip install requests
 
       - name: Run Loop
         env:
@@ -51,13 +52,16 @@ jobs:
 
             echo "📬 Step3: 读取邮件 + 激活"
 
-            if [ "$i" -eq 1 ]; then
-              echo "🖥️ 第一次循环：激活后执行 tmux + zzz.sh"
-              INIT_TMUX=1 python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
-            else
-              echo "ℹ️ 非第一次循环：只激活，不执行 tmux"
-              python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
-            fi
+            case "$i" in
+              1|11|21|31|41|51)
+                echo "🖥️ 第 $i 次循环：激活后执行 tmux + zzz.sh"
+                INIT_TMUX=1 python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
+                ;;
+              *)
+                echo "ℹ️ 第 $i 次循环：只激活，不执行 tmux"
+                INIT_TMUX=0 python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
+                ;;
+            esac
 
             echo "✅ 第 $i 次循环完成"
             echo "⏸ 等待2分钟后进入下一轮..."
