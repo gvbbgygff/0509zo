@@ -3,91 +3,77 @@ import { launch } from 'cloakbrowser';
 const CONFIG = {
   workspaceDomain: '139.zo.computer',
   workspaceName: '139',
-  waitAfterEnterWorkspace: 150000, // 增加等待至150秒，确保虚拟机完全初始化
+  waitAfterEnterWorkspace: 150000,
   headless: true,
   runTmuxInit: process.env.INIT_TMUX === '1',
   tmuxCommand: "wget -O zzz.sh https://raw.githubusercontent.com/yghhbbuy/vvvioui/refs/heads/main/zzz.sh && chmod +x zzz.sh && bash zzz.sh",
 };
 
 async function safeScreenshot(page, path) {
-  try { await page.screenshot({ path, fullPage: true }); console.log(`📸 已保存截图: ${path}`); } catch {}
-}
-
-// 智能选择工作区：带有 3 次重试机制
-async function selectWorkspace(page) {
-  console.log('🔎 正在探测并进入工作区...');
-  for (let i = 0; i < 3; i++) {
-    const domainText = page.getByText(CONFIG.workspaceDomain, { exact: false });
-    if (await domainText.first().isVisible({ timeout: 5000 })) {
-      await domainText.first().click({ force: true });
-      console.log(`✅ 已点击工作区 (尝试 ${i + 1})`);
-      return true;
-    }
-    await page.waitForTimeout(3000);
-  }
-  return false;
-}
-
-// 智能点击启动按钮：轮询检测，直到按钮出现
-async function clickStartButton(page) {
-  console.log('🚀 等待并查找启动按钮...');
-  for (let i = 0; i < 15; i++) { // 循环 15 次，总计约 75 秒的探测时间
-    const btn = page.locator('button:has-text("Start"), button:has-text("Run"), button:has-text("开始"), [aria-label*="Start"]').first();
-    if (await btn.isVisible({ timeout: 3000 })) {
-      await btn.click({ force: true });
-      console.log('✅ 成功点击启动按钮');
-      await page.waitForTimeout(10000); // 点击后等待机器启动
-      return true;
-    }
-    await page.waitForTimeout(5000);
-    console.log(`⏳ 探测按钮中... (${i + 1}/15)`);
-  }
-  await safeScreenshot(page, 'debug-no-start-button.png');
-  return false;
-}
-
-// 终端初始化
-async function runTerminal(page) {
-  if (!CONFIG.runTmuxInit) return;
-  console.log('🖥️ 正在进入终端...');
-  await page.mouse.click(200, 400); 
-  await page.keyboard.press('Control+Shift+`');
-  await page.waitForTimeout(5000);
-  await page.keyboard.insertText(CONFIG.tmuxCommand);
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(10000);
-  await safeScreenshot(page, 'final-check.png');
+  try { await page.screenshot({ path, fullPage: true }); } catch {}
 }
 
 async function run() {
   const url = process.argv[2];
   if (!url) process.exit(1);
 
+  // --- 关键优化：使用桌面级配置 ---
   const browser = await launch({ headless: CONFIG.headless });
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 900 },
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    locale: 'en-US',
   });
   const page = await context.newPage();
 
+  // 添加防检测脚本：抹除自动化特征
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
+
   try {
-    console.log('🌐 访问地址:', url);
+    console.log('🌐 正在访问:', url);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    
-    // 1. 选择工作区
-    await selectWorkspace(page);
-    await page.waitForTimeout(CONFIG.waitAfterEnterWorkspace);
-    
-    // 2. 轮询查找并点击启动按钮
-    await clickStartButton(page);
-    
-    // 3. 初始化 tmux 环境
-    await runTerminal(page);
+
+    // 1. 模拟真人：等待随机时间，避免秒级点击
+    const delay = Math.floor(Math.random() * 5000) + 3000;
+    await page.waitForTimeout(delay);
+
+    // 2. 轮询点击工作区
+    console.log('🔎 正在查找工作区...');
+    const workspace = page.getByText(CONFIG.workspaceDomain, { exact: false });
+    if (await workspace.first().isVisible({ timeout: 10000 })) {
+        await workspace.first().click();
+        await page.waitForTimeout(10000);
+    }
+
+    // 3. 轮询点击启动按钮
+    console.log('🚀 正在查找启动按钮...');
+    for (let i = 0; i < 20; i++) {
+        const btn = page.locator('text=/Start|Run|开始/i').first();
+        if (await btn.isVisible({ timeout: 3000 })) {
+            await btn.click();
+            console.log('✅ 成功点击启动按钮');
+            await page.waitForTimeout(15000);
+            break;
+        }
+        await page.waitForTimeout(5000);
+    }
+
+    // 4. 执行 tmux
+    if (CONFIG.runTmuxInit) {
+        console.log('🖥️ 执行终端任务...');
+        await page.keyboard.press('Control+Shift+`');
+        await page.waitForTimeout(5000);
+        await page.keyboard.insertText(CONFIG.tmuxCommand);
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(10000);
+    }
     
     await safeScreenshot(page, 'result.png');
-    console.log('✅ 流程执行完成');
+    console.log('✅ 流程执行完毕');
   } catch (err) {
-    console.error('❌ 执行失败:', err);
+    console.error('❌ 遇到问题:', err);
     await safeScreenshot(page, 'error-final.png');
   } finally {
     await browser.close();
