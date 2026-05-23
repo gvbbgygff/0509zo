@@ -41,7 +41,7 @@ async function selectWorkspaceIfNeeded(page) {
 }
 
 async function clickStartButtonIfExists(page) {
-  const startButton = page.locator('text=Start machine').or(page.locator('text=Run')).first();
+  const startButton = page.locator('text=Start machine').or(page.locator('text=Run')).or(page.locator('text=Start')).first();
   if (await isVisible(startButton, 10000)) {
     await clickSafely(startButton, 'Start');
     await page.waitForTimeout(10000);
@@ -70,12 +70,18 @@ async function run() {
 
   try {
     console.log(`🌐 访问地址: ${url}`);
-    await page.goto(url, { waitUntil: 'networkidle' });
+    
+    // 关键修复：将 waitUntil 从 'networkidle' 改为 'domcontentloaded'
+    // 并将 timeout 从 30秒 延长至 60秒，避免因网站响应慢而报错
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    
+    // 给页面 JS 加载一点缓冲时间
+    await page.waitForTimeout(5000);
 
     await selectWorkspaceIfNeeded(page);
     await clickStartButtonIfExists(page);
     
-    console.log(`⌛ 等待加载...`);
+    console.log(`⌛ 等待工作区加载...`);
     await page.waitForTimeout(CONFIG.waitAfterEnterWorkspace);
 
     await openTerminalAndRunTmux(page);
