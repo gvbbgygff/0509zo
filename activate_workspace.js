@@ -13,67 +13,85 @@ async function safeScreenshot(page, path) {
   try { await page.screenshot({ path, fullPage: true }); } catch {}
 }
 
+async function selectWorkspace(page) {
+  console.log('🔎 正在探测并进入工作区...');
+  // 精确匹配：查找包含域名或名称的容器元素
+  const selector = `text="${CONFIG.workspaceDomain}"`;
+  const workspace = page.locator(selector).first();
+  if (await workspace.isVisible({ timeout: 10000 })) {
+    await workspace.click({ force: true });
+    return true;
+  }
+  return false;
+}
+
+async function clickStartButton(page) {
+  console.log('🚀 正在执行精准点击启动按钮策略...');
+  
+  // 核心改动：使用严格的属性选择器，排除掉 <p> 等文本标签
+  // 优先匹配 button, role="button", 或特定 aria-label
+  const btnSelector = 'button:has-text("Start"), button:has-text("Run"), button:has-text("开始"), [role="button"]:has-text("Start"), [aria-label*="Start"]';
+  
+  for (let i = 0; i < 15; i++) {
+    const btn = page.locator(btnSelector).first();
+    
+    // 额外检查：确保该元素不是一个单纯的说明性段落
+    if (await btn.isVisible({ timeout: 3000 })) {
+      const tagName = await btn.evaluate(el => el.tagName);
+      if (tagName === 'P' || tagName === 'DIV' && (await btn.innerText()).length > 50) {
+        console.log(`⚠️ 忽略误匹配元素: <${tagName}>`);
+      } else {
+        await btn.scrollIntoViewIfNeeded();
+        await btn.click({ force: true });
+        console.log('✅ 精准点击成功');
+        await page.waitForTimeout(10000);
+        return true;
+      }
+    }
+    await page.waitForTimeout(5000);
+  }
+  await safeScreenshot(page, 'debug-button-fail.png');
+  return false;
+}
+
 async function run() {
   const url = process.argv[2];
   if (!url) process.exit(1);
 
-  // --- 关键优化：使用桌面级配置 ---
   const browser = await launch({ headless: CONFIG.headless });
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    locale: 'en-US',
   });
   const page = await context.newPage();
 
-  // 添加防检测脚本：抹除自动化特征
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-  });
+  // 抹除自动化特征
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); });
 
   try {
-    console.log('🌐 正在访问:', url);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    // 1. 模拟真人：等待随机时间，避免秒级点击
-    const delay = Math.floor(Math.random() * 5000) + 3000;
-    await page.waitForTimeout(delay);
-
-    // 2. 轮询点击工作区
-    console.log('🔎 正在查找工作区...');
-    const workspace = page.getByText(CONFIG.workspaceDomain, { exact: false });
-    if (await workspace.first().isVisible({ timeout: 10000 })) {
-        await workspace.first().click();
-        await page.waitForTimeout(10000);
-    }
-
-    // 3. 轮询点击启动按钮
-    console.log('🚀 正在查找启动按钮...');
-    for (let i = 0; i < 20; i++) {
-        const btn = page.locator('text=/Start|Run|开始/i').first();
-        if (await btn.isVisible({ timeout: 3000 })) {
-            await btn.click();
-            console.log('✅ 成功点击启动按钮');
-            await page.waitForTimeout(15000);
-            break;
-        }
-        await page.waitForTimeout(5000);
-    }
-
-    // 4. 执行 tmux
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    
+    // 1. 选择工作区
+    await selectWorkspace(page);
+    await page.waitForTimeout(CONFIG.waitAfterEnterWorkspace);
+    
+    // 2. 精准点击启动
+    await clickStartButton(page);
+    
+    // 3. 终端操作
     if (CONFIG.runTmuxInit) {
-        console.log('🖥️ 执行终端任务...');
-        await page.keyboard.press('Control+Shift+`');
-        await page.waitForTimeout(5000);
-        await page.keyboard.insertText(CONFIG.tmuxCommand);
-        await page.keyboard.press('Enter');
-        await page.waitForTimeout(10000);
+      await page.mouse.click(200, 400);
+      await page.keyboard.press('Control+Shift+`');
+      await page.waitForTimeout(5000);
+      await page.keyboard.insertText(CONFIG.tmuxCommand);
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(10000);
     }
     
     await safeScreenshot(page, 'result.png');
-    console.log('✅ 流程执行完毕');
+    console.log('✅ 执行流程结束');
   } catch (err) {
-    console.error('❌ 遇到问题:', err);
+    console.error('❌ 执行失败:', err);
     await safeScreenshot(page, 'error-final.png');
   } finally {
     await browser.close();
