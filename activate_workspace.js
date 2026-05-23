@@ -96,4 +96,47 @@ async function run() {
     }
 
     // ✅ 6. 最终检查
-    if
+    if ((await domain.count()) === 0) {
+      console.log('❌ 最终仍未找到域名');
+
+      const html = await page.content();
+      fs.writeFileSync('debug.html', html);
+
+      await safeScreenshot(page, 'not-found.png');
+      return;
+    }
+
+    // ✅ 7. 点击
+    await domain.waitFor({
+      state: 'visible',
+      timeout: 30000,
+    });
+
+    await domain.click({ force: true });
+
+    console.log('✅ 已点击域名');
+
+    await page.waitForTimeout(20000);
+
+    // ✅ 8. tmux 初始化
+    if (CONFIG.runTmuxInit) {
+      console.log('🖥️ 启动终端...');
+      await page.keyboard.press('Control+Shift+`');
+      await page.waitForTimeout(5000);
+
+      await page.keyboard.insertText(CONFIG.tmuxCommand);
+      await page.keyboard.press('Enter');
+    }
+
+    await safeScreenshot(page, 'result.png');
+
+    console.log('✅ 完成');
+  } catch (err) {
+    console.error('❌ 错误:', err);
+    await safeScreenshot(page, 'error.png');
+  } finally {
+    await browser.close();
+  }
+}
+
+run();
