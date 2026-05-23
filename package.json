@@ -1,0 +1,9 @@
+{
+  "name": "automation-task",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "cloakbrowser": "latest",
+    "playwright": "latest"
+  }
+}
