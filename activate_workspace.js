@@ -1,8 +1,8 @@
 import { launch } from 'cloakbrowser';
 
 const CONFIG = {
-  workspaceDomain: 'ttt0090.zo.computer',
-  workspaceName: 'ttt0090',
+  workspaceDomain: '139.zo.computer',
+  workspaceName: '139',
   waitAfterEnterWorkspace: 120000, // 延长到120秒，确保环境彻底就绪
   headless: true,
   runTmuxInit: process.env.INIT_TMUX === '1',
