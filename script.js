@@ -11,7 +11,7 @@ async function runOnce() {
     await page.click('text="Email me a link"');
     const emailInput = page.locator('input');
     await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-    await emailInput.fill('ttt0090@gmail.com');
+    await emailInput.fill('13857610661@139.com');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(5000);
     await page.screenshot({ path: 'result.png' });
