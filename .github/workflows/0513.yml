@@ -1,89 +1,91 @@
-name: Zo Verify API Test
+name: Zo Browser Verify Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  test_verify:
+  test_browser:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
+      - name: 📂 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.10"
+          node-version: 18
 
-      - name: 📦 Install dependencies
-        run: pip install requests
-
-      - name: 🧪 Run verify API test
+      - name: 📦 Install deps
         run: |
-          python - << 'EOF'
-          import requests
+          npm init -y
+          npm install cloakbrowser
 
-          # ✅ ⚠️ 必须换成“最新邮件里的 verify 链接”
-          url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=你的最新token"""
+      - name: 📝 Write test script
+        run: |
+          cat > test.js << 'EOF'
+          import { launch } from 'cloakbrowser';
 
-          session = requests.Session()
+          const VERIFY_URL = `https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fhandle%3Dttt0090&token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxYmU5Yjk3LTMzM2ItNDQxMC04NmEwLTUyYTUyNzAwZDcxNSIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IjEzODU3NjEwNjYxQDEzOS5jb20iLCJub25jZSI6IjgzZjc3MzJiLTVlNjUtNDQ3ZC1hNDE1LTU0MGI0NWM5NWRhMSIsImV4cCI6MTc3OTU4NDI4OCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnpvLmNvbXB1dGVyIiwiYXVkIjoib24tc3Vic3RyYXRlIn0.uXlaPixkXZaPkSUlxDcaIlvnAXuytn30nFyu9Nsjbkan8ga03uoqo7XXHnHg1zlV9YOnABM_Vhd6wx4SF2CRAg`;
 
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
-              "Accept-Language": "en-US,en;q=0.9",
-              "Connection": "keep-alive"
-          }
+          (async () => {
+            const browser = await launch({
+              headless: true // ⚠️ Actions必须headless
+            });
 
-          print("🚀 开始请求 verify...\n")
+            const page = await browser.newPage();
 
-          try:
-              resp = session.get(
-                  url,
-                  headers=headers,
-                  allow_redirects=True,
-                  timeout=30
-              )
+            try {
+              console.log("🌐 打开 verify...");
+              await page.goto(VERIFY_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-              print("✅ 请求完成\n")
+              await page.waitForTimeout(15000);
 
-              print("===== 基本信息 =====")
-              print("✅ 状态码:", resp.status_code)
-              print("📍 最终URL:", resp.url)
+              console.log("📍 当前URL:", await page.url());
 
-              print("\n===== Cookies =====")
-              cookies = session.cookies.get_dict()
-              print("🍪 Cookies:", cookies)
-              print("📏 Cookie数量:", len(cookies))
+              await page.screenshot({ path: "01_page.png", fullPage: true });
 
-              print("\n===== 响应内容预览 =====")
-              print(resp.text[:300])
+              // ✅ 模拟用户行为（即使在Actions也尝试）
+              await page.mouse.move(200, 200);
+              await page.mouse.move(800, 500);
+              await page.waitForTimeout(5000);
 
-              print("\n===== 判定结果 =====")
+              await page.screenshot({ path: "02_after_action.png", fullPage: true });
 
-              # ✅ 是否拿到cookie
-              if len(cookies) == 0:
-                  print("❌ 没拿到cookie → API可能被拦")
-              else:
-                  print("✅ 已拿到cookie")
+              console.log("🔍 查找域名...");
 
-              # ✅ 是否Cloudflare页面
-              if "Cloudflare" in resp.text or "Verifying your browser" in resp.text:
-                  print("❌ 返回Cloudflare验证页面 → 失败")
-              else:
-                  print("✅ 没有Cloudflare拦截")
+              const DOMAIN = "139.zo.computer";
+              const locator = page.locator(`:has-text("${DOMAIN}")`);
 
-              # ✅ 是否跳转
-              if "verify" not in resp.url:
-                  print("✅ 已成功跳转离开verify")
-              else:
-                  print("⚠️ 仍在verify页面（可能没问题）")
+              if (await locator.count() > 0) {
+                console.log("🎉 ✅ 找到域名！");
+              } else {
+                console.log("❌ 未找到域名（大概率被CF挡）");
+              }
 
-              # ✅ 最终判断
-              if len(cookies) > 0 and "Cloudflare" not in resp.text:
-                  print("\n🎉 ✅ ✅ ✅ 最终结论：可以完全不用浏览器")
-              else:
-                  print("\n💥 ❌ ❌ ❌ 最终结论：API方案不可用")
+            } catch (e) {
+              console.log("❌ 错误:", e);
+              try {
+                await page.screenshot({ path: "99_error.png" });
+              } catch {}
+            }
 
-          except Exception as e:
-              print("❌ 请求异常:", e)
-
+            await browser.close();
+          })();
           EOF
+
+      - name: 🚀 Run test
+        run: node test.js
+
+      - name: 📂 List files
+        if: always()
+        run: |
+          ls -la
+
+      - name: 📤 Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-debug
+          path: |
+            *.png
