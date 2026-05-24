@@ -1,61 +1,67 @@
-name: Zo Full Auto Loop (Debug + Test)
+import requests
 
-on:
-  workflow_dispatch:
+# ✅ 替换成你的最新 verify 链接（一定要新！）
+url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=你的token"""
 
-jobs:
-  # ✅ ✅ ✅ 先跑这个：验证能不能不用浏览器
-  test_verify:
-    runs-on: ubuntu-latest
+session = requests.Session()
 
-    steps:
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Connection": "keep-alive",
+}
 
-      - name: 📦 Install deps
-        run: pip install requests
+print("🚀 开始请求 verify...\n")
 
-      - name: 🧪 Run verify test
-        run: |
-          python - << 'EOF'
-          import requests
+try:
+    resp = session.get(
+        url,
+        headers=headers,
+        allow_redirects=True,
+        timeout=30
+    )
 
-          url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxYmU5Yjk3LTMzM2ItNDQxMC04NmEwLTUyYTUyNzAwZDcxNSIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IjEzODU3NjEwNjYxQDEzOS5jb20iLCJub25jZSI6IjU4ZWUyZTE3LThhNzktNDdkNC04ZmQyLTQ5MWFmOTQzZTU5NiIsImV4cCI6MTc3OTU4NDE4OCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnpvLmNvbXB1dGVyIiwiYXVkIjoib24tc3Vic3RyYXRlIn0.WS82vo61Tct59GnFzNwtreHbpE6ngUmkpB7UQwLqXuN119OR1R4iIun2WyJDmYSz6LPoArGZjIduaWOsNLJ5Xg"""
+    print("✅ 请求完成\n")
 
-          session = requests.Session()
+    print("===== 基本信息 =====")
+    print("✅ 状态码:", resp.status_code)
+    print("📍 最终URL:", resp.url)
 
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-              "Accept": "text/html,application/xhtml+xml",
-              "Accept-Language": "en-US,en;q=0.9",
-              "Connection": "keep-alive"
-          }
+    print("\n===== Cookies =====")
+    cookies = session.cookies.get_dict()
+    print("🍪 Cookies:", cookies)
+    print("📏 Cookie数量:", len(cookies))
 
-          try:
-              print("🚀 请求 verify...")
+    print("\n===== 响应内容检查 =====")
+    text_preview = resp.text[:300]
+    print("📄 前300字符:\n", text_preview)
 
-              resp = session.get(
-                  url,
-                  headers=headers,
-                  allow_redirects=True,
-                  timeout=30
-              )
+    print("\n===== 判定结果 =====")
 
-              print("✅ 状态码:", resp.status_code)
-              print("📍 最终URL:", resp.url)
+    # ✅ 判定1：是否拿到cookie
+    if len(cookies) == 0:
+        print("❌ 失败：没有拿到 cookie（API 可能被拦）")
+    else:
+        print("✅ 已拿到 cookie")
 
-              cookies = session.cookies.get_dict()
-              print("🍪 cookies:", cookies)
+    # ✅ 判定2：是否 Cloudflare 拦截
+    if "Verifying your browser" in resp.text or "Cloudflare" in resp.text:
+        print("❌ 失败：返回 Cloudflare 验证页面（被风控）")
+    else:
+        print("✅ 未返回 Cloudflare 页面")
 
-              print("📏 cookie数量:", len(cookies))
+    # ✅ 判定3：是否成功跳转
+    if "verify" not in resp.url:
+        print("✅ 已跳转离开 verify（理想情况）")
+    else:
+        print("⚠️ 仍停留 verify（但不一定失败）")
 
-              if len(cookies) > 0:
-                  print("\n✅ ✅ ✅ 结论：可以不用浏览器")
-              else:
-                  print("\n❌ ❌ ❌ 结论：API也被拦")
+    # ✅ 最终结论
+    if len(cookies) > 0 and "Cloudflare" not in resp.text:
+        print("\n🎉 ✅ ✅ ✅ 最终结论：可以彻底不用浏览器（成功）")
+    else:
+        print("\n💥 ❌ ❌ ❌ 最终结论：API 方案不可用")
 
-          except Exception as e:
-              print("❌ 出错:", e)
-          EOF
+except Exception as e:
+    print("❌ 请求异常:", e)
