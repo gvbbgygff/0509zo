@@ -1,88 +1,61 @@
-name: Zo Full Auto Loop (Debug)
+name: Zo Full Auto Loop (Debug + Test)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '10 22 * */9 *'
 
 jobs:
-  run:
+  # ✅ ✅ ✅ 先跑这个：验证能不能不用浏览器
+  test_verify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: 📦 Install Node deps
-        run: |
-          npm init -y
-          npm install cloakbrowser playwright
-
-      - name: 🎭 Install Playwright browsers
-        run: |
-          npx playwright install --with-deps
-
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: 📦 Install Python deps
+      - name: 📦 Install deps
+        run: pip install requests
+
+      - name: 🧪 Run verify test
         run: |
-          pip install requests
+          python - << 'EOF'
+          import requests
 
-      - name: 🚀 Run Loop
-        env:
-          EMAIL_PASSWORD: ${{ secrets.PASSWORD }}
-        run: |
-          echo "🚀 开始循环..."
+          url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxYmU5Yjk3LTMzM2ItNDQxMC04NmEwLTUyYTUyNzAwZDcxNSIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IjEzODU3NjEwNjYxQDEzOS5jb20iLCJub25jZSI6IjU4ZWUyZTE3LThhNzktNDdkNC04ZmQyLTQ5MWFmOTQzZTU5NiIsImV4cCI6MTc3OTU4NDE4OCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnpvLmNvbXB1dGVyIiwiYXVkIjoib24tc3Vic3RyYXRlIn0.WS82vo61Tct59GnFzNwtreHbpE6ngUmkpB7UQwLqXuN119OR1R4iIun2WyJDmYSz6LPoArGZjIduaWOsNLJ5Xg"""
 
-          for i in {1..180}
-          do
-            echo "============================"
-            echo "🔁 第 $i 次循环"
-            date
+          session = requests.Session()
 
-            echo "📨 Step1: 发送邮件"
-            node script.js || echo "⚠️ 发邮件失败"
+          headers = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+              "Accept": "text/html,application/xhtml+xml",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Connection": "keep-alive"
+          }
 
-            echo "⏳ Step2: 等待邮件"
-            sleep 20
+          try:
+              print("🚀 请求 verify...")
 
-            echo "📬 Step3: 读取邮件 + 激活"
+              resp = session.get(
+                  url,
+                  headers=headers,
+                  allow_redirects=True,
+                  timeout=30
+              )
 
-            if [[ "$i" == "1" || "$i" == "11" || "$i" == "21" || "$i" == "31" || "$i" == "41" || "$i" == "51" ]]; then
-              echo "🖥️ 执行 tmux 初始化"
-              INIT_TMUX=1 python read_and_activate2.py || echo "⚠️ 激活失败"
-            else
-              INIT_TMUX=0 python read_and_activate2.py || echo "⚠️ 激活失败"
-            fi
+              print("✅ 状态码:", resp.status_code)
+              print("📍 最终URL:", resp.url)
 
-            echo "✅ 第 $i 次循环完成"
-            echo "⏸ 等待2分钟..."
-            sleep 120
-          done
+              cookies = session.cookies.get_dict()
+              print("🍪 cookies:", cookies)
 
-          echo "🎉 循环结束"
+              print("📏 cookie数量:", len(cookies))
 
-      # ✅ ✅ ✅ 打印文件（确认截图存在）
-      - name: 📂 列出文件
-        if: always()
-        run: |
-          echo "==== 当前目录文件 ===="
-          ls -la
+              if len(cookies) > 0:
+                  print("\n✅ ✅ ✅ 结论：可以不用浏览器")
+              else:
+                  print("\n❌ ❌ ❌ 结论：API也被拦")
 
-      # ✅ ✅ ✅ 上传截图 & HTML（关键）
-      - name: 📤 上传调试文件
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-output
-          path: |
-            *.png
-            *.html
+          except Exception as e:
+              print("❌ 出错:", e)
+          EOF
