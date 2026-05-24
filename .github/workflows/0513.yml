@@ -26,7 +26,7 @@ jobs:
           cat > test.js << 'EOF'
           import { launch } from 'cloakbrowser';
 
-          const VERIFY_URL = `https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fhandle%3Dttt0090&token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxYmU5Yjk3LTMzM2ItNDQxMC04NmEwLTUyYTUyNzAwZDcxNSIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IjEzODU3NjEwNjYxQDEzOS5jb20iLCJub25jZSI6IjgzZjc3MzJiLTVlNjUtNDQ3ZC1hNDE1LTU0MGI0NWM5NWRhMSIsImV4cCI6MTc3OTU4NDI4OCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnpvLmNvbXB1dGVyIiwiYXVkIjoib24tc3Vic3RyYXRlIn0.uXlaPixkXZaPkSUlxDcaIlvnAXuytn30nFyu9Nsjbkan8ga03uoqo7XXHnHg1zlV9YOnABM_Vhd6wx4SF2CRAg`;
+          const VERIFY_URL = `https://freecloud.ltd/login`;
 
           (async () => {
             const browser = await launch({
