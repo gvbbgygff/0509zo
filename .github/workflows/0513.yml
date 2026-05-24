@@ -1,67 +1,89 @@
-import requests
+name: Zo Verify API Test
 
-# ✅ 替换成你的最新 verify 链接（一定要新！）
-url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=你的token"""
+on:
+  workflow_dispatch:
 
-session = requests.Session()
+jobs:
+  test_verify:
+    runs-on: ubuntu-latest
 
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Connection": "keep-alive",
-}
+    steps:
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-print("🚀 开始请求 verify...\n")
+      - name: 📦 Install dependencies
+        run: pip install requests
 
-try:
-    resp = session.get(
-        url,
-        headers=headers,
-        allow_redirects=True,
-        timeout=30
-    )
+      - name: 🧪 Run verify API test
+        run: |
+          python - << 'EOF'
+          import requests
 
-    print("✅ 请求完成\n")
+          # ✅ ⚠️ 必须换成“最新邮件里的 verify 链接”
+          url = """https://www.zo.computer/api/email-login/verify?redirect=%2Fsignup%3Fintent%3Dlogin&token=你的最新token"""
 
-    print("===== 基本信息 =====")
-    print("✅ 状态码:", resp.status_code)
-    print("📍 最终URL:", resp.url)
+          session = requests.Session()
 
-    print("\n===== Cookies =====")
-    cookies = session.cookies.get_dict()
-    print("🍪 Cookies:", cookies)
-    print("📏 Cookie数量:", len(cookies))
+          headers = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Connection": "keep-alive"
+          }
 
-    print("\n===== 响应内容检查 =====")
-    text_preview = resp.text[:300]
-    print("📄 前300字符:\n", text_preview)
+          print("🚀 开始请求 verify...\n")
 
-    print("\n===== 判定结果 =====")
+          try:
+              resp = session.get(
+                  url,
+                  headers=headers,
+                  allow_redirects=True,
+                  timeout=30
+              )
 
-    # ✅ 判定1：是否拿到cookie
-    if len(cookies) == 0:
-        print("❌ 失败：没有拿到 cookie（API 可能被拦）")
-    else:
-        print("✅ 已拿到 cookie")
+              print("✅ 请求完成\n")
 
-    # ✅ 判定2：是否 Cloudflare 拦截
-    if "Verifying your browser" in resp.text or "Cloudflare" in resp.text:
-        print("❌ 失败：返回 Cloudflare 验证页面（被风控）")
-    else:
-        print("✅ 未返回 Cloudflare 页面")
+              print("===== 基本信息 =====")
+              print("✅ 状态码:", resp.status_code)
+              print("📍 最终URL:", resp.url)
 
-    # ✅ 判定3：是否成功跳转
-    if "verify" not in resp.url:
-        print("✅ 已跳转离开 verify（理想情况）")
-    else:
-        print("⚠️ 仍停留 verify（但不一定失败）")
+              print("\n===== Cookies =====")
+              cookies = session.cookies.get_dict()
+              print("🍪 Cookies:", cookies)
+              print("📏 Cookie数量:", len(cookies))
 
-    # ✅ 最终结论
-    if len(cookies) > 0 and "Cloudflare" not in resp.text:
-        print("\n🎉 ✅ ✅ ✅ 最终结论：可以彻底不用浏览器（成功）")
-    else:
-        print("\n💥 ❌ ❌ ❌ 最终结论：API 方案不可用")
+              print("\n===== 响应内容预览 =====")
+              print(resp.text[:300])
 
-except Exception as e:
-    print("❌ 请求异常:", e)
+              print("\n===== 判定结果 =====")
+
+              # ✅ 是否拿到cookie
+              if len(cookies) == 0:
+                  print("❌ 没拿到cookie → API可能被拦")
+              else:
+                  print("✅ 已拿到cookie")
+
+              # ✅ 是否Cloudflare页面
+              if "Cloudflare" in resp.text or "Verifying your browser" in resp.text:
+                  print("❌ 返回Cloudflare验证页面 → 失败")
+              else:
+                  print("✅ 没有Cloudflare拦截")
+
+              # ✅ 是否跳转
+              if "verify" not in resp.url:
+                  print("✅ 已成功跳转离开verify")
+              else:
+                  print("⚠️ 仍在verify页面（可能没问题）")
+
+              # ✅ 最终判断
+              if len(cookies) > 0 and "Cloudflare" not in resp.text:
+                  print("\n🎉 ✅ ✅ ✅ 最终结论：可以完全不用浏览器")
+              else:
+                  print("\n💥 ❌ ❌ ❌ 最终结论：API方案不可用")
+
+          except Exception as e:
+              print("❌ 请求异常:", e)
+
+          EOF
