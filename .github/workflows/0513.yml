@@ -1,4 +1,4 @@
-name: Zo Full Auto Loop-早
+name: Zo Full Auto Loop (Debug)
 
 on:
   workflow_dispatch:
@@ -10,29 +10,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install Playwright
+      - name: 📦 Install Node deps
         run: |
-          npm install playwright
+          npm init -y
+          npm install cloakbrowser playwright
+
+      - name: 🎭 Install Playwright browsers
+        run: |
           npx playwright install --with-deps
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install Python deps
+      - name: 📦 Install Python deps
         run: |
           pip install requests
 
-      - name: Run Loop
+      - name: 🚀 Run Loop
         env:
           EMAIL_PASSWORD: ${{ secrets.PASSWORD }}
         run: |
@@ -45,28 +49,40 @@ jobs:
             date
 
             echo "📨 Step1: 发送邮件"
-            node script.js || echo "⚠️ 发邮件失败，继续下一步"
+            node script.js || echo "⚠️ 发邮件失败"
 
             echo "⏳ Step2: 等待邮件"
             sleep 20
 
             echo "📬 Step3: 读取邮件 + 激活"
 
-            case "$i" in
-              1|11|21|31|41|51)
-                echo "🖥️ 第 $i 次循环：激活后执行 tmux + zzz.sh"
-                INIT_TMUX=1 python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
-                ;;
-              *)
-                echo "ℹ️ 第 $i 次循环：只激活，不执行 tmux"
-                INIT_TMUX=0 python read_and_activate2.py || echo "⚠️ 激活失败，不影响下一轮"
-                ;;
-            esac
+            if [[ "$i" == "1" || "$i" == "11" || "$i" == "21" || "$i" == "31" || "$i" == "41" || "$i" == "51" ]]; then
+              echo "🖥️ 执行 tmux 初始化"
+              INIT_TMUX=1 python read_and_activate2.py || echo "⚠️ 激活失败"
+            else
+              INIT_TMUX=0 python read_and_activate2.py || echo "⚠️ 激活失败"
+            fi
 
             echo "✅ 第 $i 次循环完成"
-            echo "⏸ 等待2分钟后进入下一轮..."
+            echo "⏸ 等待2分钟..."
             sleep 120
-            echo "➡️ 准备进入下一轮..."
           done
 
-          echo "🎉 循环完成"
+          echo "🎉 循环结束"
+
+      # ✅ ✅ ✅ 打印文件（确认截图存在）
+      - name: 📂 列出文件
+        if: always()
+        run: |
+          echo "==== 当前目录文件 ===="
+          ls -la
+
+      # ✅ ✅ ✅ 上传截图 & HTML（关键）
+      - name: 📤 上传调试文件
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-output
+          path: |
+            *.png
+            *.html
